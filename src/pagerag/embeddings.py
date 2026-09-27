@@ -2,5 +2,5 @@ from sentence_transformers import SentenceTransformer
 
 model =SentenceTransformer('all-MiniLM-L6-v2')
 
-def generate_embedding(text:str):
+def embed_text(text:str):
     return model.encode(text)
