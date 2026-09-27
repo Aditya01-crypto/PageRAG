@@ -75,8 +75,6 @@ async def extract_docx_text(f_path:Path):
 
 async def get_file_content(f_path:Path):
     text_data=None
-    print(f_path)
-    print(f_path.suffix)
     if f_path.suffix=='.pdf':
         text_data=await extract_pdf_text(f_path)
     elif f_path.suffix == '.docx':

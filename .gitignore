@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 .env
+uploaded_files/
+
+meta.log
