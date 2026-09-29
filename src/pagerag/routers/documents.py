@@ -38,7 +38,7 @@ async def upload_document(file:UploadFile=File(...)):
         shutil.copyfileobj(file.file,buffer)
 
     response = await add_document(filepath)
-    filepath.unlink()
+    filepath.unlink() # to clean directory after processing
     if response:
         return response
     else:
