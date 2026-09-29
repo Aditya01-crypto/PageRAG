@@ -3,10 +3,10 @@ from pagerag.config import UPLOAD_DIR
 import shutil
 from pathlib import Path
 from math import ceil
-from pagerag.vectorstore import add_file
+from pagerag.vectorstore import add_document,list_document
 router = APIRouter(prefix='/documents',tags=['documents'])
 
-router.post('/upload')
+
 
 UPLOAD_DIR.mkdir(exist_ok=True,parents=True)
 
@@ -27,6 +27,7 @@ async def file_validation(file:UploadFile):
         raise HTTPException(400,f"File size should be of {size_threshold} or less")
     await file.seek(0)
 
+@router.post('/upload')
 async def upload_document(file:UploadFile=File(...)):
     await file_validation(file)
 
@@ -36,6 +37,16 @@ async def upload_document(file:UploadFile=File(...)):
     with filepath.open("wb") as buffer:
         shutil.copyfileobj(file.file,buffer)
 
-    response = await add_file(filepath)
+    response = await add_document(filepath)
+    filepath.unlink()
+    if response:
+        return response
+    else:
+        raise HTTPException(400,"File has no extractable content!")
 
-    return response
+@router.get('/')
+def show_documents(skip:int=0,limit:int=10):
+    result = list_document(limit=limit,skip=skip)
+  
+    return result
+ 
