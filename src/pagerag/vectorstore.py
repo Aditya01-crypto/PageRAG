@@ -24,7 +24,7 @@ def process_chunks(filename:str,chunks:list[Chunk]):
         ids.append(f"{filename}_ch_"+str(cid))
         chunk_text = " ".join(chunk.text)
         embeddings.append(embed_text(chunk_text))
-        documents.append(f"{filename} chunk {cid}")
+        documents.append(chunk_text)
         mdata= {"source":filename,"chunk_index":cid}
         metadatas.append(mdata)
     return CollectionData(ids=ids,embeddings=embeddings,documents=documents,mdata=metadatas)
@@ -58,10 +58,6 @@ def list_document():
         distinct_keys = list(unique_keys)
         return distinct_keys
     return None
-
-if __name__ == "__main__":
-    data =list_document()
-    print(data)
 
 def delete_document(source:str):
     count_before=collection.count()
