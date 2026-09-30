@@ -1,7 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Request
 from pagerag.routers.documents import router
 import uvicorn
-app = FastAPI()
+from httpx import AsyncClient
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    app.state.http_client= AsyncClient(timeout=30.0)
+    yield
+    await app.state.http_client.aclose()
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(router)
 
 def start():
