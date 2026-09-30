@@ -51,6 +51,14 @@ async def add_document(filepath:Path):
     
     return None
 
-def list_document(limit:int,skip:int)->GetResult:
-    result = collection.get(limit=limit,offset=skip)
-    return result
+def list_document():
+    all_meta_data = collection.get(include=["metadatas"]).get("metadatas")
+    if all_meta_data is not None:
+        unique_keys={metadata.get("source") for metadata in all_meta_data}#type: ignore
+        distinct_keys = list(unique_keys)
+        return distinct_keys
+    return None
+
+if __name__ == "__main__":
+    data =list_document()
+    print(data)

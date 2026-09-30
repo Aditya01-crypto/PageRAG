@@ -46,7 +46,7 @@ async def upload_document(file:UploadFile=File(...)):
 
 @router.get('/')
 def show_documents(skip:int=0,limit:int=10):
-    result = list_document(limit=limit,skip=skip)
-  
-    return result
+    result = list_document() 
+    
+    return result if result else []
  
