@@ -3,7 +3,7 @@ from pagerag.config import UPLOAD_DIR
 import shutil
 from pathlib import Path
 from math import ceil
-from pagerag.vectorstore import add_document,list_document
+from pagerag.vectorstore import add_document,list_document,delete_document
 router = APIRouter(prefix='/documents',tags=['documents'])
 
 
@@ -49,4 +49,12 @@ def show_documents(skip:int=0,limit:int=10):
     result = list_document() 
     
     return result if result else []
- 
+
+@router.delete('/{doc_name}')
+def remove_document(doc_name:str):
+    result=delete_document(doc_name)
+    if result:
+        return {"Message":f"{doc_name} deleted succesfully","Chunks Removed":result}
+    else:
+        raise HTTPException(404,f"Document '{doc_name}' not found")
+    

@@ -62,3 +62,13 @@ def list_document():
 if __name__ == "__main__":
     data =list_document()
     print(data)
+
+def delete_document(source:str):
+    count_before=collection.count()
+    collection.delete(where={"source":source})
+    count_after=collection.count()
+    deleted_count =count_before -count_after
+    if deleted_count >0:
+        return deleted_count
+    else:
+        return None
