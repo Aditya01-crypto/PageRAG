@@ -68,3 +68,9 @@ def delete_document(source:str):
         return deleted_count
     else:
         return None
+
+
+def retrieve_relevant_chunk(query:str,limit:int=3):
+    query_emb=embed_text(query)
+    result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
+    return result.get('documents',[])
