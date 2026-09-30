@@ -47,8 +47,10 @@ async def upload_document(file:UploadFile=File(...)):
 @router.get('/')
 def show_documents(skip:int=0,limit:int=10):
     result = list_document() 
-    
-    return result if result else []
+    if result:
+        if len(result)>skip:
+            return result[skip:limit+skip]
+    return[] 
 
 @router.delete('/{doc_name}')
 def remove_document(doc_name:str):
