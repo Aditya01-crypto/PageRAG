@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated
 from chromadb import Metadata
 import numpy as np
+
 class Chunk(BaseModel):
     chunk_id:int
     text:list[str]
