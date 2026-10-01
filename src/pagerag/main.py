@@ -19,7 +19,16 @@ def start():
 
 @app.get('/')
 def index():
-    return "This is main endpoint"
+    endpoint ={
+        "intro": "GET /",
+        "docs" : 'GET /docs',
+        "documents" : 'GET /documents',
+        "delete" : "DELETE /documents/{name}",
+        "upload" : "POST /documents/upload",
+        "query" : "POST /query",
+        "stream query" : "POST /query/stream"
+    }
+    return 
 
 
 if __name__ == '__main__':
