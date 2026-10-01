@@ -28,7 +28,7 @@ def index():
         "query" : "POST /query",
         "stream query" : "POST /query/stream"
     }
-    return 
+    return  endpoint
 
 
 if __name__ == '__main__':

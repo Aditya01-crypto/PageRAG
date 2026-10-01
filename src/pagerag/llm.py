@@ -86,4 +86,4 @@ async def event_generator(client:AsyncClient,query:str,chunk_limit:int=4,token_l
                 except json.JSONDecodeError:
                     continue
     response_payload={"Answer":accumulated_text}
-    yield f"data: {json.dumps(response_payload)}\n\n"
+    yield f"data: {response_payload}\n\n"
