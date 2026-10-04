@@ -8,8 +8,8 @@ import numpy as np
 
 
 
-client = PersistentClient(path="./doc_db")
-collection = client.get_or_create_collection("documents",metadata={"hnsw:space":"cosine"})
+# client = PersistentClient(path="./doc_db")
+# collection = client.get_or_create_collection("documents",metadata={"hnsw:space":"cosine"})
 
 
 
@@ -30,7 +30,7 @@ def process_chunks(filename:str,chunks:list[Chunk]):
     return CollectionData(ids=ids,embeddings=embeddings,documents=documents,mdata=metadatas)
 
 
-async def add_document(filepath:Path):
+async def add_document(collection,filepath:Path):
     file_data = await get_file_content(filepath)
     if file_data:
         filename=filepath.name
@@ -51,7 +51,7 @@ async def add_document(filepath:Path):
     
     return None
 
-def list_document():
+def list_document(collection):
     all_meta_data = collection.get(include=["metadatas"]).get("metadatas")
     if all_meta_data is not None:
         unique_keys={metadata.get("source") for metadata in all_meta_data}#type: ignore
@@ -59,7 +59,7 @@ def list_document():
         return distinct_keys
     return None
 
-def delete_document(source:str):
+def delete_document(collection,source:str):
     count_before=collection.count()
     collection.delete(where={"source":source})
     count_after=collection.count()
@@ -70,7 +70,7 @@ def delete_document(source:str):
         return None
 
 
-def retrieve_relevant_chunk(query:str,limit:int=3):
+def retrieve_relevant_chunk(collection,query:str,limit:int=3):
     query_emb=embed_text(query)
     result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
     result  = result.get('documents',[[]])

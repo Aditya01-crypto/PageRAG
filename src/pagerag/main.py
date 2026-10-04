@@ -4,9 +4,14 @@ import uvicorn
 from httpx import AsyncClient
 from contextlib import asynccontextmanager
 from pagerag.routers.query import query_router
+import chromadb
+
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     app.state.http_client= AsyncClient(timeout=30.0)
+    app.state.chroma_client= chromadb.PersistentClient(path="./doc_db")
+    app.state.collection = app.state.chroma_client.get_or_create_collection("documents",metadata={"hnsw:space":"cosine"})
+
     yield
     await app.state.http_client.aclose()
 
