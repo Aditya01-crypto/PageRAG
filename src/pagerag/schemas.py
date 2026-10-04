@@ -33,3 +33,13 @@ class DocumentResponse(BaseModel):
     filename:str
     file_type:str
     total_chunks:int
+
+class QueryRequest(BaseModel):
+    query:str = Field(min_length=5)
+    chunk_limit:int = Field(default=4,gt=0)
+    token_limit:int = Field(default=2000,ge=500)
+
+class QueryResponse(BaseModel):
+    answer:str
+    sources:list[str]|None
+    question: str    

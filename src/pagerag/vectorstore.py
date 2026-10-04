@@ -1,5 +1,4 @@
 from pathlib import Path
-from chromadb import PersistentClient,GetResult
 from pagerag.extract import get_file_content
 from pagerag.chunker import build_document_result
 from pagerag.schemas import Chunk,CollectionData,DocumentResponse
@@ -7,9 +6,13 @@ from pagerag.embeddings import embed_text
 import numpy as np
 
 
-
-# client = PersistentClient(path="./doc_db")
-# collection = client.get_or_create_collection("documents",metadata={"hnsw:space":"cosine"})
+def get_source(data:dict):
+    ids = data.get('ids',[[]])[0]
+    s=set()
+    for i in ids:
+        name=i.split('.')[0]
+        s.add(name)
+    return list(s)
 
 
 
@@ -73,10 +76,11 @@ def delete_document(collection,source:str):
 def retrieve_relevant_chunk(collection,query:str,limit:int=3):
     query_emb=embed_text(query)
     result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
+    source = get_source(result)
     result  = result.get('documents',[[]])
     if result:
         chunks = result[0]
-        return "\n\n".join(chunks)
-    return None
+        return ("\n\n".join(chunks),source)
+    return (None,None)
 
     
