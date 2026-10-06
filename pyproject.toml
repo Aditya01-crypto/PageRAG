@@ -13,6 +13,7 @@ dependencies = [
     "fonttools>=4.66.0",
     "pypdf>=6.19.0",
     "python-docx>=1.2.0",
+    "rank-bm25>=0.2.2",
     "sentence-transformers>=6.1.0",
     "slowapi>=0.1.10",
 ]
