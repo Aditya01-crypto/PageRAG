@@ -77,10 +77,9 @@ def retrieve_relevant_chunk(collection,query:str,limit:int=3):
     query_emb=embed_text(query)
     result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
     source = get_source(result)
-    result  = result.get('documents',[[]])
+    result  = result.get('documents',[[]])[0]
     if result:
-        chunks = result[0]
-        return ("\n\n".join(chunks),source)
+        return (result,source)
     return (None,None)
 
     
