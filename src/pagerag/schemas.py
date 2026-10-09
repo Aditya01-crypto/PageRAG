@@ -2,7 +2,7 @@
 from pydantic import BaseModel,Field,ConfigDict
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated,Literal
 from chromadb import Metadata
 import numpy as np
 
@@ -36,6 +36,7 @@ class DocumentResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     query:str = Field(min_length=5)
+    mode: Literal["vector_only","hybrid","hybrid_rerank"]
     chunk_limit:int = Field(default=4,gt=0)
     token_limit:int = Field(default=2000,ge=500)
 
