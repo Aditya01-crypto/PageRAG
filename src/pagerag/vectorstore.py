@@ -4,7 +4,9 @@ from pagerag.chunker import build_document_result
 from pagerag.schemas import Chunk,CollectionData,DocumentResponse
 from pagerag.embeddings import embed_text
 import numpy as np
-
+from typing import Literal
+from pagerag.hybrid import rrf_fusion,bm25_search,build_bm25_index
+from pagerag.reranker import rerank
 
 def get_source(data:dict):
     ids = data.get('ids',[[]])[0]
@@ -73,13 +75,31 @@ def delete_document(collection,source:str):
         return None
 
 
-def retrieve_relevant_chunk(collection,query:str,limit:int=3):
+def retrieve_relevant_chunk(collection,query:str,limit:int=3,mode:Literal["vector_only","hybrid","hybrid_rerank"] = "vector_only"):
+    '''
+    Provides Relevant Chunks based on given query. 
+    vector_only :  dense vector similarity search
+    hybrid : vector + keyword search using RRF
+    hybrid rerank :  (vector + BM25) refined with cross-encoder reranking
+    '''
     query_emb=embed_text(query)
     result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
     source = get_source(result)
-    result  = result.get('documents',[[]])[0]
-    if result:
-        return (result,source)
-    return (None,None)
-
+    vector_result  = result.get('documents',[[]])[0]
+    if mode == 'vector_only':
+        if vector_result:
+            return (vector_result,source)
+        return (None,None)
     
+    bm25,bm_chunks = build_bm25_index(collection)
+
+    bm25_result = bm25_search(bm25=bm25,chunks=bm_chunks,query=query,limit=limit)
+    rrf_result = rrf_fusion(vector_result,bm25_result,limit)
+    if mode == 'hybrid':
+        return (rrf_result,None) #  build the  logic for getting source hybrid
+    
+    if mode  == 'hybrid_rerank':
+        rerank_result = rerank(query,rrf_result,limit)
+        return (rerank_result,None) 
+        
+    return (None,None)
