@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from math import ceil
 from pagerag.vectorstore import add_document,list_document,delete_document
+from pagerag.hybrid import build_bm25_index
 router = APIRouter(prefix='/documents',tags=['documents'])
 
 
@@ -31,6 +32,7 @@ async def file_validation(file:UploadFile):
 async def upload_document(request:Request,file:UploadFile=File(...)):
     await file_validation(file)
     collection = request.app.state.collection
+    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     filename=(file.filename)
     filepath=UPLOAD_DIR/filename #type: ignore 
 
@@ -56,6 +58,7 @@ def show_documents(request:Request,skip:int=0,limit:int=10):
 @router.delete('/{doc_name}')
 def remove_document(request:Request,doc_name:str):
     collection = request.app.state.collection
+    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     result=delete_document(collection,doc_name)
     if result:
         return {"Message":f"{doc_name} deleted succesfully","Chunks Removed":result}
