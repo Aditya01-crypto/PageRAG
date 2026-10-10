@@ -1,4 +1,3 @@
-from pagerag.vectorstore import retrieve_relevant_chunk
 from httpx import AsyncClient
 import os
 from fastapi import HTTPException
@@ -42,8 +41,7 @@ def extract_gemini_response(data:dict)->str:
 
     return "".join(part.get("text","")for part in parts if "text" in part)
 
-async def ask_llm(collection,client:AsyncClient,query:str,c_limit:int,t_limit:int=2000):
-    context,sources = retrieve_relevant_chunk(collection,query=query,limit=c_limit)
+async def ask_llm(context,sources,client:AsyncClient,query:str,c_limit:int,t_limit:int=2000):
     prompt = initialize_prompt(context=context,question=query)
     payload={
     "contents": [{"parts": [{"text":prompt}]}],
@@ -57,10 +55,8 @@ async def ask_llm(collection,client:AsyncClient,query:str,c_limit:int,t_limit:in
     else:
         raise HTTPException(status_code=response.status_code,detail=f"{response.text}")
 
-async def event_generator(collection,client:AsyncClient,query:str,chunk_limit:int=4,token_limit:int=2000):
+async def event_generator(context,sources,client:AsyncClient,query:str,chunk_limit:int=4,token_limit:int=2000):
     accumulated_text=""
-
-    context,sources = retrieve_relevant_chunk(collection,query=query,limit=chunk_limit)
     prompt=initialize_prompt(context,query)
     payload={
         "contents": [{"parts": [{"text":prompt}]}],
