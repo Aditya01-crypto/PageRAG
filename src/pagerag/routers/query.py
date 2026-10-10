@@ -2,9 +2,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from httpx import AsyncClient
 from pagerag.llm import ask_llm,event_generator
-from pagerag.vectorstore import retrieve_relevant_chunk
+from pagerag.vectorstore import vector_search
 from pagerag.config import limiter
 from pagerag.schemas import QueryRequest, QueryResponse
+from typing import Literal
+from pagerag.hybrid import rrf_fusion,bm25_search
+from pagerag.reranker import rerank
+
 query_router = APIRouter(prefix='/query',tags=['query'])
 
 @query_router.post('/',response_model=QueryResponse)
@@ -12,14 +16,50 @@ query_router = APIRouter(prefix='/query',tags=['query'])
 async def ask_query(request:Request,query_req:QueryRequest):
     client: AsyncClient = request.app.state.http_client
     query=query_req.query.strip()
-    collection = request.app.state.collection
-    result = await ask_llm(collection,client,query,query_req.chunk_limit,t_limit=query_req.token_limit)
+    limit = query_req.chunk_limit
+    context,sources = retrieve_relevant_chunk(request,query,limit=limit,mode=query_req.mode)
+    result = await ask_llm(context,sources,client,query,query_req.chunk_limit,t_limit=query_req.token_limit)
     return result
 
 @query_router.post('/stream')
 @limiter.limit('10/minute')
 async def ask_query_stream_rsp(request:Request,query_req:QueryRequest):
     client=request.app.state.http_client
-    collection = request.app.state.collection
     query = query_req.query
-    return StreamingResponse(event_generator(collection,client,query,query_req.chunk_limit,query_req.token_limit),media_type="text/event-stream")
+    limit = query_req.chunk_limit
+    context,sources = retrieve_relevant_chunk(request,query,limit=limit,mode=query_req.mode)
+    return StreamingResponse(event_generator(context,sources,client,query,query_req.chunk_limit,query_req.token_limit),media_type="text/event-stream")
+
+@query_router.post('/chunks')
+def show_chunks(request:Request,query_req:QueryRequest):
+    data = retrieve_relevant_chunk(request,query_req.query,limit=query_req.chunk_limit,mode=query_req.mode)
+    
+    return {"data":str(data)}
+
+def retrieve_relevant_chunk(request:Request,query:str,limit:int=3,mode:Literal["vector_only","hybrid","hybrid_rerank"] = "vector_only"):
+    '''
+    Provides Relevant Chunks based on given query and its source. 
+    vector_only :  dense vector similarity search
+    hybrid : vector + keyword search using RRF
+    hybrid rerank :  (vector + BM25) refined with cross-encoder reranking
+    '''
+    collection = request.app.state.collection
+    vector_result,source  = vector_search(collection,query,limit)
+    if mode == 'vector_only':
+        if vector_result:
+            return (vector_result,source)
+        return (None,None)
+    
+    if vector_result:
+        bm25,bm_chunks  = request.app.state.bm25obj,request.app.state.bm25chunk
+
+        bm25_result = bm25_search(bm25=bm25,chunks=bm_chunks,query=query,limit=limit)
+        rrf_result = rrf_fusion(vector_result,bm25_result,limit)
+        if mode == 'hybrid':
+            return (rrf_result,None) #  build the  logic for getting source hybrid
+        
+        if mode  == 'hybrid_rerank':
+            rerank_result = rerank(query,rrf_result,limit)
+            return (rerank_result,None) 
+        
+    return (None,None)
