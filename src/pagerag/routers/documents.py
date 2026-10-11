@@ -32,7 +32,6 @@ async def file_validation(file:UploadFile):
 async def upload_document(request:Request,file:UploadFile=File(...)):
     await file_validation(file)
     collection = request.app.state.collection
-    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     filename=(file.filename)
     filepath=UPLOAD_DIR/filename #type: ignore 
 
@@ -41,6 +40,7 @@ async def upload_document(request:Request,file:UploadFile=File(...)):
 
     response = await add_document(collection,filepath)
     filepath.unlink() # to clean directory after processing
+    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     if response:
         return response
     else:
@@ -58,10 +58,10 @@ def show_documents(request:Request,skip:int=0,limit:int=10):
 @router.delete('/{doc_name}')
 def remove_document(request:Request,doc_name:str):
     collection = request.app.state.collection
-    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     result=delete_document(collection,doc_name)
+    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
     if result:
         return {"Message":f"{doc_name} deleted succesfully","Chunks Removed":result}
     else:
         raise HTTPException(404,f"Document '{doc_name}' not found")
-    
+     

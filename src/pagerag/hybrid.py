@@ -8,7 +8,7 @@ def generate_chunkid(chunk:str):
     return hasher.hexdigest()
 
 def get_chunks(collection:Collection):
-    data = collection.get()
+    data = collection.get(include=['documents'])
     chunks=[]
     if data:
         chunks = data.get('documents',[])
@@ -25,7 +25,10 @@ def build_bm25_index(collection:Collection):
     Provides BM250kapi Object + Tokenized Corpus
     '''
     tokenized_corpus = build_tokenized_corpus(collection)# a list of chunks
-    bm25 = BM25Okapi(tokenized_corpus)
+    if tokenized_corpus:
+        bm25 = BM25Okapi(tokenized_corpus)
+    else:
+        bm25 = None #safety guardrail
 
     return bm25,tokenized_corpus
 
@@ -72,5 +75,4 @@ def rrf_fusion(vector_result:list,bm25_result:list,limit:int,k:int=60):
         return chunks[:limit]
     else :
         return []
-
 
