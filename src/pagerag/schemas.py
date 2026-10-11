@@ -37,7 +37,8 @@ class DocumentResponse(BaseModel):
 class QueryRequest(BaseModel):
     query:str = Field(min_length=5)
     mode: Literal["vector_only","hybrid","hybrid_rerank"]
-    chunk_limit:int = Field(default=4,gt=0)
+    fetch_k:int = Field(default=10,gt=0)
+    top_k:int = Field(default=5,gt=0)
     token_limit:int = Field(default=2000,ge=500)
 
 class QueryResponse(BaseModel):
