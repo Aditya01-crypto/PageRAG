@@ -4,14 +4,8 @@ from pagerag.chunker import build_document_result
 from pagerag.schemas import Chunk,CollectionData,DocumentResponse
 from pagerag.embeddings import embed_text
 from chromadb import Collection
+from pagerag.chunker import generate_chunkid
 
-def get_source(data):
-    ids = data.get('ids',[[]])[0]
-    s=set()
-    for i in ids:
-        name=i.split('.')[0]
-        s.add(name)
-    return list(s)
 
 def process_chunks(filename:str,chunks:list[Chunk]):
     ids=[]
@@ -21,7 +15,7 @@ def process_chunks(filename:str,chunks:list[Chunk]):
   
     for chunk in chunks:
         cid = chunk.chunk_id
-        ids.append(f"{filename}_ch_"+str(cid))
+        ids.append(cid)
         chunk_text = " ".join(chunk.text)
         embeddings.append(embed_text(chunk_text))
         documents.append(chunk_text)
@@ -73,11 +67,25 @@ def delete_document(collection,source:str):
 def vector_search(collection:Collection,query:str,fetch_limit:int=20,):
     query_emb=embed_text(query)
     result = collection.query(query_embeddings=query_emb,n_results=fetch_limit,include=['documents'])
-    source = get_source(result)
     if result:
         documents  = result.get('documents') or [[]] # None proof 
         if documents :
             vector_result = documents[0]
-            return(vector_result,source)
+            return vector_result
         
-    return (None,None)
+    return None
+
+def get_source(collection:Collection,chunks:list[str]|tuple[str]|None)->list:
+    if not chunks:
+        return []
+    
+    chunk_ids = []
+    for chunk in chunks:
+        chunk_ids.append(generate_chunkid(chunk))
+        collection_data = collection.get(ids=chunk_ids,include=['metadatas'])
+        if collection_data:
+            metadatas = collection_data.get('metadatas')
+            if metadatas:
+                sources = [mdata.get('source') for mdata in metadatas]
+                return sources
+    return []
