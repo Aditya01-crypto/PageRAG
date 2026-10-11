@@ -70,9 +70,9 @@ def delete_document(collection,source:str):
         return None
 
 
-def vector_search(collection:Collection,query:str,limit:int=3):
+def vector_search(collection:Collection,query:str,fetch_limit:int=20,):
     query_emb=embed_text(query)
-    result = collection.query(query_embeddings=query_emb,n_results=limit,include=['documents'])
+    result = collection.query(query_embeddings=query_emb,n_results=fetch_limit,include=['documents'])
     source = get_source(result)
     if result:
         documents  = result.get('documents') or [[]] # None proof 
