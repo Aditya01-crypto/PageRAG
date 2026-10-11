@@ -7,7 +7,7 @@ from chromadb import Metadata
 import numpy as np
 
 class Chunk(BaseModel):
-    chunk_id:int
+    chunk_id:str
     text:list[str]
     word_count:Annotated[int,Field(ge=0)]
     char_count:Annotated[int,Field(ge=0)]
