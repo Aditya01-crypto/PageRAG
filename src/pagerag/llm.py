@@ -17,8 +17,7 @@ def initialize_prompt(context,question):
     If the context does not contain enough information to answer the question, say "I don't have enough information in the provided documents to answer this."
     Do not use any prior knowledge outside of the context.
 
-    Context:
-    {context}
+    Context: {" ".join(context)}
 
     Question: {question}
 
