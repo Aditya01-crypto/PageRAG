@@ -29,7 +29,7 @@ async def add_document(collection,filepath:Path):
     if file_data:
         filename=filepath.name
         filetype=filepath.suffix
-        result= build_document_result(filename=filename,file_type=filetype,text=file_data,chunk_size=367,overlap=70)
+        result= build_document_result(filename=filename,file_type=filetype,text=file_data,chunk_size=165,overlap=33)
 
         chunks = result.chunks
         total_chunks = len(chunks)# for document response
