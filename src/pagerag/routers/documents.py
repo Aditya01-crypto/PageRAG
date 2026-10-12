@@ -40,7 +40,7 @@ async def upload_document(request:Request,file:UploadFile=File(...)):
 
     response = await add_document(collection,filepath)
     filepath.unlink() # to clean directory after processing
-    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
+    request.app.state.bm25 = build_bm25_index(collection)
     if response:
         return response
     else:
@@ -59,7 +59,7 @@ def show_documents(request:Request,skip:int=0,limit:int=10):
 def remove_document(request:Request,doc_name:str):
     collection = request.app.state.collection
     result=delete_document(collection,doc_name)
-    request.app.state.bm25obj, request.app.state.bm25chunk = build_bm25_index(collection)
+    request.app.state.bm25 = build_bm25_index(collection)
     if result:
         return {"Message":f"{doc_name} deleted succesfully","Chunks Removed":result}
     else:

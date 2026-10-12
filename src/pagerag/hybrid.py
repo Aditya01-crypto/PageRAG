@@ -1,6 +1,12 @@
 from rank_bm25 import BM25Okapi
 from chromadb import Collection
 from hashlib import md5
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class BM25State:
+    index: BM25Okapi | None
+    chunks : list[list[str]]
 
 def generate_chunkid(chunk:str):
     enc_chunk = chunk.encode('utf-8')
@@ -20,7 +26,7 @@ def build_tokenized_corpus(collection:Collection):
         return [chunk.split() for chunk in corpus ]
     return []
 
-def build_bm25_index(collection:Collection):
+def build_bm25_index(collection:Collection)->BM25State:
     '''
     Provides BM250kapi Object + Tokenized Corpus
     '''
@@ -30,7 +36,7 @@ def build_bm25_index(collection:Collection):
     else:
         bm25 = None #safety guardrail
 
-    return bm25,tokenized_corpus
+    return BM25State(index=bm25,chunks=tokenized_corpus)
 
 def bm25_search(bm25:BM25Okapi,chunks:list[list],query:str,fetch_limit:int):
     '''

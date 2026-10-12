@@ -12,7 +12,7 @@ async def lifespan(app:FastAPI):
     app.state.http_client= AsyncClient(timeout=30.0)
     app.state.chroma_client= chromadb.PersistentClient(path="./doc_db")
     app.state.collection = app.state.chroma_client.get_or_create_collection("documents",metadata={"hnsw:space":"cosine"})
-    app.state.bm25obj , app.state.bm25chunk = build_bm25_index(app.state.collection)
+    app.state.bm25 = build_bm25_index(app.state.collection)
 
     yield
     await app.state.http_client.aclose()
