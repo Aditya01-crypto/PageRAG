@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from docx import Document
 from pypdf import PdfReader
+import unicodedata
 
 def clean_text(func): # decorator that cleans the text output
     @functools.wraps(func)
@@ -12,8 +13,8 @@ def clean_text(func): # decorator that cleans the text output
         text= await func(*args,**kwargs)
         if not isinstance(text,str):
             return text
+        text = unicodedata.normalize('NFKC',text)
         text=re.sub(r'\s+'," ",text)
-        text=re.sub(r'[^\x00-\x7F+]'," ",text)
         return text
     return wrapper
 

@@ -6,7 +6,15 @@ from math import ceil
 from pagerag.vectorstore import add_document,list_document,delete_document
 from pagerag.hybrid import build_bm25_index
 from pagerag.extract import is_supported
+from contextlib import contextmanager
+import asyncio
 
+@contextmanager 
+def cleanup_after(path:Path):
+    try :
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
 router = APIRouter(prefix='/documents',tags=['documents'])
 UPLOAD_DIR.mkdir(exist_ok=True,parents=True)
 
@@ -33,13 +41,12 @@ async def upload_document(request:Request,file:UploadFile=File(...)):
     collection = request.app.state.collection
     filepath=UPLOAD_DIR/filename 
 
-    with filepath.open("wb") as buffer:
-        shutil.copyfileobj(file.file,buffer)
-
-    response = await add_document(collection,filepath)
-    filepath.unlink() # to clean directory after processing
-    request.app.state.bm25 = build_bm25_index(collection)
+    with cleanup_after(filepath):
+        with filepath.open("wb") as buffer:
+            await asyncio.to_thread(shutil.copyfileobj,file.file,buffer)
+        response = await add_document(collection,filepath)
     if response:
+        request.app.state.bm25 = await asyncio.to_thread(build_bm25_index,collection)
         return response
     else:
         raise HTTPException(400,"File has no extractable content!")
@@ -57,8 +64,8 @@ def show_documents(request:Request,skip:int=0,limit:int=10):
 def remove_document(request:Request,doc_name:str):
     collection = request.app.state.collection
     result=delete_document(collection,doc_name)
-    request.app.state.bm25 = build_bm25_index(collection)
     if result:
+        request.app.state.bm25 =  build_bm25_index(collection)
         return {"Message":f"{doc_name} deleted succesfully","Chunks Removed":result}
     else:
         raise HTTPException(404,f"Document '{doc_name}' not found")

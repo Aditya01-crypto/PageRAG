@@ -1,84 +1,63 @@
 from rank_bm25 import BM25Okapi
 from chromadb import Collection
-from hashlib import md5
 from dataclasses import dataclass
+import re
+from pagerag.schemas import Hit
 
 @dataclass(frozen=True)
 class BM25State:
     index: BM25Okapi | None
     chunks : list[list[str]]
+    hits : list[Hit]
 
-def generate_chunkid(chunk:str):
-    enc_chunk = chunk.encode('utf-8')
-    hasher = md5(enc_chunk)
-    return hasher.hexdigest()
+def load_hits(collection:Collection) -> list[Hit]:
+    data = collection.get(include=['documents', 'metadatas'])
+    ids = data.get('ids') or []
+    docs = data.get('documents') or []
+    metas = data.get('metadatas') or []
+    return [Hit(id=i, text=d, source=str((m or {}).get('source', '')))
+            for i, d, m in zip(ids, docs, metas)]
 
-def get_chunks(collection:Collection):
-    data = collection.get(include=['documents'])
-    chunks=[]
-    if data:
-        chunks = data.get('documents',[])
-    return chunks
 
-def build_tokenized_corpus(collection:Collection):
-    corpus  = get_chunks(collection)
-    if isinstance(corpus,list):
-        return [chunk.split() for chunk in corpus ]
-    return []
+def tokenize(text: str) -> list[str]:
+    tokens = []
+    for tok in text.lower().split():
+        tok = re.sub(r"^\W+|\W+$", "", tok)   
+        if tok:                                #
+            tokens.append(tok)
+    return tokens
+
 
 def build_bm25_index(collection:Collection)->BM25State:
     '''
     Provides BM250kapi Object + Tokenized Corpus
     '''
-    tokenized_corpus = build_tokenized_corpus(collection)# a list of chunks
-    if tokenized_corpus:
-        bm25 = BM25Okapi(tokenized_corpus)
-    else:
-        bm25 = None #safety guardrail
+    hits = load_hits(collection)
+    tokenized = [tokenize(h.text) for h in hits]
+    bm25 = BM25Okapi(tokenized) if tokenized else None
+    return BM25State(index=bm25, chunks=tokenized, hits=hits)
 
-    return BM25State(index=bm25,chunks=tokenized_corpus)
-
-def bm25_search(bm25:BM25Okapi,chunks:list[list],query:str,fetch_limit:int):
+def bm25_search(state:BM25State,query:str,fetch_limit:int):
     '''
-        Provides Top  chunks as per limit value  along with their  BM25 score
+        Provides Top  chunks as per limit value  
     '''
-    tokenized_query =query.split()
-    top_n_chunk = bm25.get_top_n(tokenized_query,chunks,n=fetch_limit)
-    return [" ".join(chunk)for chunk in top_n_chunk]
+    if state.index is None:
+        return []
+    scores = state.index.get_scores(tokenize(query))
+    ranked =sorted(range(len(scores)),key=lambda i : scores[i],reverse=True)
+    return [state.hits[i] for i in ranked[:fetch_limit] if scores[i] > 0]
 
-def rrf_fusion(vector_result:list,bm25_result:list,limit:int,k:int=60):
+def rrf_fusion(vector_result:list[Hit],bm25_result:list[Hit],limit:int,k:int=60):
     '''
         Provides Reciprocal Rank Fusion based order of result
     '''
-    rrf_rank=[]
-    vector_scores ={}
-    bm25_scores = {}
-    chunk_map ={}
-    # vector score
-    for i in range(len(vector_result)):
-        chunk = vector_result[i]
-        chunk_id = generate_chunkid(chunk)
-        chunk_map[chunk_id]=chunk
-        vector_score = 1/(k+i+1)
-        vector_scores[chunk_id]=vector_score
+    scores : dict[str,float] ={}
+    by_id : dict [str,Hit] = {}
+    for hits in (vector_result,bm25_result):
+        for rank, hit  in enumerate(hits,start=1):
+            by_id[hit.id] = hit
+            scores[hit.id] = scores.get(hit.id,0.0)+1/(k+rank)
+    best = sorted(scores,key=scores.__getitem__,reverse=True)
+    return [by_id[i] for i in best[:limit]]
 
-    # bm25 score
-    for i in range(len(bm25_result)):
-        chunk = bm25_result[i]
-        chunk_id = generate_chunkid(bm25_result[i])
-        chunk_map[chunk_id] = chunk
-        bm25_score = 1/(k+i+1)
-        bm25_scores[chunk_id]=bm25_score
-
-    for id in chunk_map:
-        rrf_score = vector_scores.get(id,0)+ bm25_scores.get(id,0)
-        rank = (chunk_map[id],rrf_score)
-        rrf_rank.append(rank)
-
-    pair =  sorted(rrf_rank,key=lambda x : x[1],reverse=True)
-    if pair :
-        chunks,score = zip(*pair)
-        return chunks[:limit]
-    else :
-        return []
-
+    

@@ -1,38 +1,28 @@
 from typing import Literal
-from pagerag.hybrid import rrf_fusion,bm25_search,BM25State
-from pagerag.reranker import rerank
-from pagerag.vectorstore import vector_search,get_source
 from chromadb import Collection
-from fastapi import HTTPException
+from pagerag.hybrid import BM25State, bm25_search, rrf_fusion
+from pagerag.reranker import rerank
+from pagerag.schemas import Hit
+from pagerag.vectorstore import vector_search
 
-def retrieve_relevant_chunk(collection:Collection,bm25:BM25State,query:str,fetch_limit:int=20,top_k:int=5,mode:Literal["vector_only","hybrid","hybrid_rerank"] = "vector_only"):
-    '''
-    Provides Relevant Chunks based on given query and its source. 
-    vector_only :  dense vector similarity search
-    hybrid : vector + keyword search using RRF
-    hybrid rerank :  (vector + BM25) refined with cross-encoder reranking
-    '''
+Mode = Literal["vector_only", "hybrid", "hybrid_rerank"]
 
-    vector_result= vector_search(collection,query,fetch_limit=fetch_limit)
-    source = get_source(collection,vector_result)
+def retrieve_hits(collection: Collection, state: BM25State, query: str,
+                  fetch_limit: int = 20, top_k: int = 5,
+                  mode: Mode = "vector_only") -> list[Hit]:
+    vector_hits = vector_search(collection, query, fetch_limit)
+    if mode == "vector_only" or not vector_hits:
+        return vector_hits[:top_k]
 
-    if mode == 'vector_only':
-        if vector_result:
-            return (vector_result[:top_k],source)#pass sliced result for vector search
+    bm25_hits = bm25_search(state, query, fetch_limit)
+    if mode == "hybrid":
+        return rrf_fusion(vector_hits, bm25_hits, limit=top_k)
 
-    if vector_result and (mode=='hybrid' or mode =='hybrid_rerank'):
+    candidates = rrf_fusion(vector_hits, bm25_hits, limit=fetch_limit)
+    return rerank(query, candidates, top_k)
 
-        if bm25.index is None or bm25.chunks == []:
-            raise HTTPException(400, detail= "The search is empty. Please upload and process a document first")
-        bm25_result = bm25_search(bm25=bm25.index,chunks=bm25.chunks,query=query,fetch_limit=fetch_limit)
-        rrf_result = rrf_fusion(vector_result,bm25_result,limit=top_k)
-        if mode == 'hybrid':
-            source = get_source(collection,rrf_result)
-            return (rrf_result,source) 
-        
-        if mode  == 'hybrid_rerank':
-            rerank_result = rerank(query,rrf_result,top_k)
-            source = get_source(collection,rerank_result)
-            return (rerank_result,source) 
-        
-    return (None,[])
+def retrieve_relevant_chunk(collection, state, query, fetch_limit=20, top_k=5, mode:Mode="vector_only"):
+    hits = retrieve_hits(collection, state, query, fetch_limit, top_k, mode)
+    context = [h.text for h in hits]
+    sources = list(dict.fromkeys(h.source for h in hits))   # deduped, keeps rank order
+    return context, sources

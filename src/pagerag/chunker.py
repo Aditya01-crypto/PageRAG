@@ -3,12 +3,7 @@ Provides utility function for chunking text data
 '''
 from pagerag.schemas import DocumentResult,Chunk
 from datetime import datetime
-from hashlib import md5
 
-def generate_chunkid(chunk:str)->str:
-    enc_chunk = chunk.encode('utf-8')
-    hasher = md5(enc_chunk)
-    return hasher.hexdigest()
 
 def chunk_text(text:str,size:int,overlap:int):
     if overlap>=size:
@@ -37,15 +32,15 @@ def get_count(chunk:list[str]):
 def build_document_result(filename:str,file_type:str,text,chunk_size,overlap)->DocumentResult:
     if text and  isinstance(text,str):
         chunks_generator=chunk_text(text,chunk_size,overlap)
-        id,total_char_count,total_word_count=1,0,0
+        total_char_count,total_word_count=0,0
         chunks,now=[],datetime.now()
 
-        for chunk in chunks_generator:
+        for idx, chunk in enumerate(chunks_generator):
             word_count,char_count=get_count(chunk)
 
             total_char_count+=char_count
             total_word_count+=word_count
-            chunk_obj=Chunk(chunk_id=generate_chunkid(" ".join(chunk)),text=chunk,word_count=word_count,char_count=char_count)
+            chunk_obj=Chunk(chunk_id=f"{filename}_chunk_{idx}",text=chunk,word_count=word_count,char_count=char_count)
 
             chunks.append(chunk_obj)
             

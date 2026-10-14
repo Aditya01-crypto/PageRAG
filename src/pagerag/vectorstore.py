@@ -1,11 +1,10 @@
 from pathlib import Path
 from pagerag.extract import get_file_content
 from pagerag.chunker import build_document_result
-from pagerag.schemas import Chunk,CollectionData,DocumentResponse
+from pagerag.schemas import Chunk,CollectionData,DocumentResponse,Hit
 from pagerag.embeddings import embed_text
 from chromadb import Collection
-from pagerag.chunker import generate_chunkid
-
+import asyncio
 
 def process_chunks(filename:str,chunks:list[Chunk]):
     ids=[]
@@ -13,34 +12,38 @@ def process_chunks(filename:str,chunks:list[Chunk]):
     documents = []
     metadatas=[]
   
-    for chunk in chunks:
+    for i, chunk in enumerate(chunks):
         cid = chunk.chunk_id
         ids.append(cid)
         chunk_text = " ".join(chunk.text)
         embeddings.append(embed_text(chunk_text))
         documents.append(chunk_text)
-        mdata= {"source":filename,"chunk_index":cid}
+        mdata= {"source":filename,"chunk_index":i}
         metadatas.append(mdata)
     return CollectionData(ids=ids,embeddings=embeddings,documents=documents,mdata=metadatas)
 
+def _ingest(collection, filename: str, filetype: str, file_data: str) -> int:
+    result = build_document_result(
+        filename=filename, file_type=filetype, text=file_data,
+        chunk_size=165, overlap=33,
+    )
+    chunks = result.chunks
+    data = process_chunks(filename, chunks)
+    collection.delete(where={'source':filename})
+    collection.add(
+        ids=data.ids,
+        embeddings=data.embeddings,
+        documents=data.documents,
+        metadatas=data.mdata,
+    )
+    return len(chunks)
 
 async def add_document(collection,filepath:Path):
     file_data = await get_file_content(filepath)
     if file_data:
         filename=filepath.name
         filetype=filepath.suffix
-        result= build_document_result(filename=filename,file_type=filetype,text=file_data,chunk_size=165,overlap=33)
-
-        chunks = result.chunks
-        total_chunks = len(chunks)# for document response
-        data = process_chunks(filename,chunks)
-
-        collection.add(
-            ids = data.ids,
-            embeddings= data.embeddings,
-            documents= data.documents,
-            metadatas=data.mdata
-        )
+        total_chunks = await asyncio.to_thread(_ingest,collection,filename,filetype,file_data)
         return DocumentResponse(filename=filename,file_type=filetype,total_chunks=total_chunks)
     
     return None
@@ -64,28 +67,13 @@ def delete_document(collection,source:str):
         return None
 
 
-def vector_search(collection:Collection,query:str,fetch_limit:int=20,):
+def vector_search(collection:Collection,query:str,fetch_limit:int=20,)->list[Hit]:
     query_emb=embed_text(query)
-    result = collection.query(query_embeddings=query_emb,n_results=fetch_limit,include=['documents'])
-    if result:
-        documents  = result.get('documents') or [[]] # None proof 
-        if documents :
-            vector_result = documents[0]
-            return vector_result
-        
-    return None
+    result = collection.query(query_embeddings=query_emb,n_results=fetch_limit,include=['documents','metadatas'])
+    ids = (result.get('ids') or [[]])[0]
+    docs = (result.get('documents') or [[]])[0]
+    metas = (result.get('metadatas') or [[]])[0]
 
-def get_source(collection:Collection,chunks:list[str]|tuple[str]|None)->list:
-    if not chunks:
-        return []
-    
-    chunk_ids = []
-    for chunk in chunks:
-        chunk_ids.append(generate_chunkid(chunk))
-        collection_data = collection.get(ids=chunk_ids,include=['metadatas'])
-        if collection_data:
-            metadatas = collection_data.get('metadatas')
-            if metadatas:
-                sources = [mdata.get('source') for mdata in metadatas]
-                return sources
-    return []
+    return [Hit(id=i, text=d, source=str((m or {}).get('source', '')))
+            for i, d, m in zip(ids, docs, metas)]
+

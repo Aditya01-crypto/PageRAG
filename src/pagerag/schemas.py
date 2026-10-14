@@ -45,3 +45,11 @@ class QueryResponse(BaseModel):
     answer:str
     sources:list[str]|None
     question: str    
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Hit:
+    id: str
+    text: str
+    source: str
