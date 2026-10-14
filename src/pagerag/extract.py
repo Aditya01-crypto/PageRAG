@@ -72,12 +72,20 @@ async def extract_docx_text(f_path:Path):
     text_data=await loop.run_in_executor(None,sync_docx_extract,f_path)
     return text_data    
 
+EXTRACTORS ={
+    ".pdf": extract_pdf_text,
+    ".docx": extract_docx_text
+}
+
+def is_supported(name:str|Path)->bool:
+    return Path(name).suffix.lower() in EXTRACTORS
+
+def give_extractor(path:Path):
+    return EXTRACTORS[path.suffix.lower()]
 
 async def get_file_content(f_path:Path):
     text_data=None
-    if f_path.suffix=='.pdf':
-        text_data=await extract_pdf_text(f_path)
-    elif f_path.suffix == '.docx':
-        text_data=await extract_docx_text(f_path)
+    if is_supported(f_path):
+        text_data = await give_extractor(f_path)(f_path)
 
     return text_data if type(text_data) is str and len(text_data)>0 else None
