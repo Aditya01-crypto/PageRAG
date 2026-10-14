@@ -5,11 +5,9 @@ from pagerag.llm import ask_llm,event_generator
 from pagerag.config import limiter
 from pagerag.schemas import QueryRequest, QueryResponse
 from pagerag.retrieve import retrieve_relevant_chunk
-from dotenv import load_dotenv
 import os
 import asyncio
 
-load_dotenv()
 query_router = APIRouter(prefix='/query',tags=['query'])
 DEBUG = os.getenv('DEBUG',"False").lower() in ('true','y','t','1')
 

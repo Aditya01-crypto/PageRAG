@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pagerag.routers.query import query_router
 from pagerag.hybrid import build_bm25_index
 import chromadb
-
+import os
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     app.state.http_client= AsyncClient(timeout=30.0)
@@ -21,11 +21,13 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(router)
 app.include_router(query_router)
 
+reload = os.getenv('RELOAD','False').lower() in ('true','t','y','1')
+
 def start():
-    uvicorn.run(app="pagerag.main:app",host='127.0.0.1',port=8000,reload=True)
+    uvicorn.run(app="pagerag.main:app",host='127.0.0.1',port=8000,reload=reload)
 
 @app.get('/')
-def index():
+def index(): 
     endpoint ={
         "intro": "GET /",
         "docs" : 'GET /docs',
