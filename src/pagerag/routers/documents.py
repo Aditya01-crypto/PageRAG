@@ -5,10 +5,9 @@ from pathlib import Path
 from math import ceil
 from pagerag.vectorstore import add_document,list_document,delete_document
 from pagerag.hybrid import build_bm25_index
+from pagerag.extract import is_supported
+
 router = APIRouter(prefix='/documents',tags=['documents'])
-
-
-
 UPLOAD_DIR.mkdir(exist_ok=True,parents=True)
 
 async def file_validation(file:UploadFile):
@@ -17,9 +16,8 @@ async def file_validation(file:UploadFile):
         raise HTTPException(404,'Got None')
 
     filename=Path(file.filename)
-    valid_file_types = {".pdf",".docx"}
 
-    if filename.suffix not in valid_file_types:
+    if  not(is_supported(filename)):
         raise HTTPException(400,"File format not supported")
 
     content= await file.read()
@@ -27,13 +25,13 @@ async def file_validation(file:UploadFile):
     if size_inmb>size_threshold:
         raise HTTPException(400,f"File size should be of {size_threshold} or less")
     await file.seek(0)
+    return  filename.name # input sanitation against '../../evil.pdf' or absolute path from user ends 
 
 @router.post('/upload')
 async def upload_document(request:Request,file:UploadFile=File(...)):
-    await file_validation(file)
+    filename = await file_validation(file)
     collection = request.app.state.collection
-    filename=(file.filename)
-    filepath=UPLOAD_DIR/filename #type: ignore 
+    filepath=UPLOAD_DIR/filename 
 
     with filepath.open("wb") as buffer:
         shutil.copyfileobj(file.file,buffer)
